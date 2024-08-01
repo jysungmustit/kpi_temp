@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
 import json
+from io import BytesIO
 
-tab1, tab2= st.tabs(['Tab A' , 'Tab B'])
+tab1, tab2= st.tabs(['브랜드별 카탈로그 현황' , 'Tab B'])
 
 
 def validate_json(data):
@@ -14,6 +15,16 @@ def validate_json(data):
       return False
   return True
 
+
+def to_excel(df):
+  output = BytesIO()
+  writer = pd.ExcelWriter(output, engine='xlsxwriter')
+  df.to_excel(writer, index=False, sheet_name='Sheet1')
+  writer.close()
+  processed_data = output.getvalue()
+  return processed_data
+
+
 with tab1:
   #tab A 를 누르면 표시될 내용
   uploaded_file = st.file_uploader("Choose a JSON file", type=["json"])
@@ -23,6 +34,7 @@ with tab1:
     try:
       # 파일 읽기
       data = json.load(uploaded_file)
+      st.write("Uploaded JSON:", data)  # JSON 데이터 표시 (디버깅 용도)
 
       # JSON 형식 검증
       if not validate_json(data):
@@ -60,10 +72,20 @@ with tab1:
           df = df.sort_values(by=["matching rate", "total count"], ascending=[False, False])
 
         # 매칭 비율을 퍼센트 형식으로 표시
-        df["matching rate"] = df["matching rate"].apply(lambda x: f"{x:.2f}%")
+        df["matching rate"] = df["matching rate"].apply(lambda x: f"{x:.1f}%")
+
+        # 엑셀 파일 다운로드 버튼
+        excel_data = to_excel(df)
+        st.download_button(
+          label="Download data as Excel",
+          data=excel_data,
+          file_name='data.xlsx',
+          mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
 
         # 테이블 표시 (스크롤 없이 전체 표시)
         st.table(df)
+
     except json.JSONDecodeError:
       st.error("Input only brand catalog json file")
 
